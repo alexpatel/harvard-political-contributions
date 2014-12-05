@@ -145,8 +145,12 @@ contribs.tagged$YEARMON <- as.yearmon(contribs.tagged$TRANSACTION_DT); head(cont
 # Do this first for the sum and median and count of all donations / month
 party.sum <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ PARTY + YEARMON, data = contribs, sum))); 
 names(party.sum)<-c("PARTY", "DATE", "DONATION"); head(party.sum)
+
 party.med <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ PARTY + YEARMON, data = contribs, median)));
 names(party.med)<-c("PARTY", "DATE", "DONATION"); head(party.med)
+
+party.mean <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ PARTY + YEARMON, data = contribs, mean)));
+names(party.mean)<-c("PARTY", "DATE", "DONATION"); head(party.mean)
 
 
 # Let's see what they look like plotted
@@ -163,11 +167,69 @@ plot(party.med[party.med$PARTY =="DEM",2], party.med[party.med$PARTY =="DEM",3])
 # Now separate the democratic donations
 party.sum.dem<-data.frame(subset(party.sum,subset = party.sum$PARTY == "DEM")); head(party.sum.dem) # Democratic donations
 # Zoom in on Jan 2005 - Oct 2008
-plot(party.sum.dem[130:139,3],party.sum.dem[130:139,4])
+
+
+# Alright, let's explore all possible linear-regression type relationships for
+# the total democratic donations per month over 2001-2014 for Harvard employees
+
+# Define some constants and results vectors
+N<-nrow(party.sum.dem);
+result.b<-numeric(12705)
+result.a<-numeric(12705)
+result.i<-numeric(12705)
+result.w<-numeric(12705)
+tic<-0 # To keep track of index in the results vector
+cor.thresh<-.8 # Our semi-arbitrary threshold for having a strong linear-regression character  
+
+for (i in 1:(N-9)) {
+  i<-i; i  # Record keeping
+  for (w in (i+4):N){
+    i<-i;i # Record keeping 
+    w<-w;w # Record keeping
+    tic<-tic+1 # Record keeping 
+    y<-party.sum.dem[i:w,3] # Our y-variable data
+    x<-seq(i,w,1) # Our x-variable data, representing the number of months since Jan 2001
+    cor.dem<-cor(y,x) # correlation
+    b <- sum( (x-mean(x)) * (y-mean(y)) / sum((x-mean(x))^2)); b # The slope of our linear-regression line
+    a <- mean(y) - b*mean(x); a # The intercept of our linear-regression line
+    
+    # Storing results: 
+    result.b[tic]<-ifelse(cor.dem>cor.thresh, b,0)
+    result.a[tic]<-ifelse(cor.dem>cor.thresh, a,0)
+    result.i[tic]<-ifelse(cor.dem>cor.thresh, i,0)
+    result.w[tic]<-ifelse(cor.dem>cor.thresh, w,0)
+    
+  }
+  
+}
+
+
+# Trim down the results to just entries that scored above our threshold correlation:
+result.b<-result.b[which(result.b!=0)]; result.b
+result.a<-result.a[which(result.a!=0)]; result.a
+result.i<-result.i[which(result.i!=0)]; result.i
+result.w<-result.w[which(result.w!=0)]; result.w
+
+# Plot all the total democratic donations per month 
+plot(seq(1,N,1),party.sum.dem[1:N,3])
+
+# Let's now look at the lines over the intervals where we found evidence of strong linear regression 
+# relationship
+for (z in 1:length(result.b)){
+  abline(result.a[z],result.b[z], col=rgb(runif(1,0,1),runif(1,0,1),runif(1,0,1)))
+}
+
+#####
+# 12-4-14
+# To do above: Fancy up the graph (get rid of y-axis numbering, reformat xaxis numbering)
+# To do: bootstrap 
+# I want to try out the Weibull distribution on this data, see if that generates anything
+# Else, bootstrapping of counts of transaction amount (or mean, or med, or etc)
+#####
 
 
 
-##################################################################################################
+)##################################################################################################
 # PREVIOUS ANALYSIS, not yet added above
 ##################################################################################################
 
@@ -254,3 +316,4 @@ party.title.mean <- party.title.mean[order(party.title.mean$TRANSACTION_AMT, dec
 # per party per gender
 party.gender.sum <- aggregate(TRANSACTION_AMT ~ CMTE_PTY_AFFILIATION + GENDER, data = contribs.tagged, sum); party.gender.sum 
 party.gender.freq <- aggregate(TRANSACTION_AMT ~ GENDER + CMTE_PTY_AFFILIATION, data = contribs.tagged, length); party.gender.freq
+
