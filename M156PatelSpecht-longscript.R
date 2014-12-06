@@ -95,6 +95,7 @@ contribs$TRANSACTION_DT <- as.Date(contribs$TRANSACTION_DT); head(contribs$TRANS
 # Add a column for month-year of transaction as well
 contribs$YEARMON <- as.yearmon(contribs$TRANSACTION_DT); head(contribs$YEARMON)
 
+
 # Create a column where we lump some of the party affiliations together
 contribs$PARTY2<-contribs$PARTY
 levels(contribs$PARTY2)
@@ -112,6 +113,12 @@ levels(people$SCHOOL) <- c("CADM","FAS","OTHER","GSE","OTHER","HBS","HKS","HLS",
 levels(contribs.tagged$SCHOOL) <- c("CADM","FAS","OTHER","GSE","OTHER","HBS","HKS","HLS","HMC","HMS","OTHER","OTHER","OTHER","SEAS","SPH","OTHER")
 # Add a column with formatted transaction date
 contribs.tagged$TRANSACTION_DT <- as.character(contribs.tagged$TRANSACTION_DT); class(contribs.tagged$TRANSACTION_DT)
+
+# Had to add a 0 to the from of some of the dates
+for (i in 1:length(contribs.tagged$TRANSACTION_DT)){
+  contribs.tagged$TRANSACTION_DT[i]<-ifelse(nchar(contribs.tagged$TRANSACTION_DT[i])!=8, paste0("0",contribs.tagged$TRANSACTION_DT[i]),contribs.tagged$TRANSACTION_DT[i])
+}
+
 contribs.tagged$TRANSACTION_DT <- as.Date(contribs.tagged$TRANSACTION_DT,format="%m%d%Y"); head(contribs.tagged$TRANSACTION_DT)
 # Add a column for month-year just like in the 2001-2014 data
 contribs.tagged$YEARMON <- as.yearmon(contribs.tagged$TRANSACTION_DT); head(contribs.tagged$YEARMON)
@@ -219,6 +226,8 @@ for (z in 1:length(result.b)){
   abline(result.a[z],result.b[z], col=rgb(runif(1,0,1),runif(1,0,1),runif(1,0,1)))
 }
 
+
+#################################################
 #####
 # 12-4-14
 # To do above: Fancy up the graph (get rid of y-axis numbering, reformat xaxis numbering)
@@ -226,10 +235,129 @@ for (z in 1:length(result.b)){
 # I want to try out the Weibull distribution on this data, see if that generates anything
 # Else, bootstrapping of counts of transaction amount (or mean, or med, or etc)
 #####
+#################################################
+
+#################################################
+#### Appropriate (ab)use of correlation
+
+# Let's ask the question: are the sum or mean donations 
+# by men versus women correlated over 2011-2014? 
+
+gender.sum <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ GENDER + YEARMON, data = contribs.tagged, sum))); 
+names(gender.sum)<-c("GENDER", "DATE", "DONATION"); head(gender.sum)
+
+# Split by gender into two subsets
+fem.sum<-data.frame(subset(gender.sum,subset = gender.sum$GENDER == "F")); head(fem.sum) # Female donations
+male.sum<-data.frame(subset(gender.sum,subset = gender.sum$GENDER == "M")); head(male.sum) # Male donations
+
+# Is there a correlation? Or do men and women donate differently over the course of the year?
+cor(fem.sum$DONATION,male.sum$DONATION)
+# Moderately positively correlated! It would seem that we have some evidence that men and women
+# increase or decrease similarly in sum donation over the course of the year 
+
+
+# Let's try the same analysis on the mean donation for both sexes! 
+gender.mean <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ GENDER + YEARMON, data = contribs.tagged, mean))); 
+names(gender.mean)<-c("GENDER", "DATE", "DONATION"); head(gender.mean)
+fem.mean<-data.frame(subset(gender.mean,subset = gender.mean$GENDER == "F")); head(fem.mean) # Female donations
+male.mean<-data.frame(subset(gender.mean,subset = gender.mean$GENDER == "M")); head(male.mean) # Male donations
+
+cor(fem.mean$DONATION,male.mean$DONATION)
+# Interesting! We can see that mean donation between the sexes is ever so slightly 
+# negatively correlated! Mostly non-correlated! 
+
+# Could this be because the standard deviation of donations? 
+gender.sd <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ GENDER + YEARMON, data = contribs.tagged, sd))); 
+names(gender.sd)<-c("GENDER", "DATE", "DONATION"); head(gender.sd)
+fem.sd<-data.frame(subset(gender.sd,subset = gender.sd$GENDER == "F")); head(fem.sd) # Female donations
+male.sd<-data.frame(subset(gender.sd,subset = gender.sd$GENDER == "M")); head(male.sd) # Male donations
+
+mean(na.omit(fem.sd$DONATION))
+mean(male.sd$DONATION)
+
+# Could this be because the standard deviation of donations? 
+gender.max <- as.data.frame(as.list(aggregate(TRANSACTION_AMT ~ GENDER + YEARMON, data = contribs.tagged, max))); 
+names(gender.max)<-c("GENDER", "DATE", "DONATION"); head(gender.max)
+fem.max<-data.frame(subset(gender.max,subset = gender.max$GENDER == "F")); head(fem.max) # Female donations
+male.max<-data.frame(subset(gender.max,subset = gender.max$GENDER == "M")); head(male.max) # Male donations
+
+mean(na.omit(fem.max$DONATION))
+mean(male.max$DONATION)
+
+# It would appear that the men have a larger average standard deviation
+# and a larger average max donation per month... This could explain why the
+# correlation between the sum donations was positive, but the mean was uncorrelated,
+# but we can't really reach any conclusions without looking at the individual data points! 
+
+
+plot(fem.sum$DONATION); points(male.sum$DONATION,col="red") 
+plot(fem.mean$DONATION); points(male.mean$DONATION,col="red") # Huh! I spy a Weibull distribution?! 
+
+plot(fem.sum$DONATION, male.sum$DONATION); abline(lm(male.sum$DONATION~fem.sum$DONATION)) # Regression line fits well
+plot(fem.mean$DONATION, male.mean$DONATION); abline(lm(male.mean$DONATION~fem.mean$DONATION)) # Regression line does not fit wel
+
+# We can see from the plots that the reason the mean values are not correlated is because they are held
+# at roughly the same level across most of the time points. There are no up or down trends in either, from which
+# we could (mathematically) deduce correlation
+
+#################################################
+
+
+#################################################
+#### The Weibull distribution ? 
+
+std.male.mean
+
+hist(male.mean$DONATION-mean, breaks="FD"); curve(dweibull(x,3000,500),xlim=c(0,3000), add=TRUE)
+
+plot(contribs.tagged$TRANSACTION_AMT[contribs.tagged$GENDER=="F"])
+hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$GENDER=="F"], breaks="FD", xlim=c(0,10000))
+
+hist(party.sum$DONATION, breaks="FD", prob=TRUE)
+curve(dweibull(x,0.4,100000),add=TRUE)
+
+MLL <-function(lambda, k) -sum(dweibull(party.sum$DONATION, k, lambda, log = TRUE))
+mle(MLL,start = list(lambda = 100000, k=0.4))
+
+hist(party.sum$DONATION, breaks="FD", prob=TRUE)
+curve(dweibull(x,0.2788594,567.8060668),add=TRUE)
+
+#################################################
+
+#################################################
+#### Bootstrapping the Donation distributions
+
+# It seems our data on donations falls into disparate bins! 
+# This may be due to the 'official' numbers that donations got rounded to when recorded
+# Can we circumvent this beaurocratic artifact with bootstrapping??? 
+
+# Let's ask the question: do male and female donations of Harvard employees 
+# fall under the same distributions? 
+
+# Let's also ask the same question for democrats and republicans 
+
+hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$GENDER=="F"], breaks="FD", xlim=c(0,10000))
+hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$GENDER=="M"], breaks="FD", xlim=c(0,10000), add=TRUE)
+
+hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$CMTE_PTY_AFFILIATION=="DEM"], breaks="FD", xlim=c(0,10000))
+hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$CMTE_PTY_AFFILIATION=="REP"], breaks="FD", xlim=c(0,10000), add=TRUE)
+
+# Neither represents a pretty distribution! 
 
 
 
-)##################################################################################################
+
+#################################################
+
+
+
+
+
+
+
+
+
+##################################################################################################
 # PREVIOUS ANALYSIS, not yet added above
 ##################################################################################################
 
