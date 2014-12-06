@@ -350,11 +350,41 @@ hist(contribs.tagged$TRANSACTION_AMT[contribs.tagged$CMTE_PTY_AFFILIATION=="REP"
 #################################################
 
 
+#################################################
+##### Counting the number of donations per month
+
+# How many different dates? 
+levels(as.factor(contribs$YEARMON))
+
+levels.date<-levels(as.factor(contribs$YEARMON))
+
+# Let's make another column for factor-type YEARMON data
+contribs$YEARMON.f<-as.factor(contribs$YEARMON); head(contribs$YEARMON.f)
 
 
+# Let's count the number of donations for a given month-year
+N<-length(levels.date); contribs.date.count<-numeric(N) # results column
+for (i in 1:N){
+  index<-which(contribs$YEARMON.f==levels.date[i]); index
+  contribs.date.count[i]<-length(index) # number of donations for the given month-year
+}
 
 
+# Out of curiousity, let's do the same, but just for the month
+month<-as.factor(c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"))
+N<-12; contribs.month.count<-numeric(N) # results column
+for (i in 1:N){
+  index<-grep(month[i],contribs$YEARMON.f); index
+  contribs.month.count[i]<-length(index) # number of donations for the given month
+}
 
+
+# Here's out result: the number of donations per month-year, and per month
+head(contribs.date.count)
+contribs.month.count
+
+
+#################################################
 
 
 ##################################################################################################
