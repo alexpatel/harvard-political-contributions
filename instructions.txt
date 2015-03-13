@@ -1,0 +1,48 @@
+These are technical instructions for recreating the Harvard political contributions data sets. In order to execute these instructions, the user will need to have Git and R installed.
+
+The repository of the data and code that I produced is located at https://github.com/alexpatel/harvard-political-contributions. It is currently a private repository, but I can share it with whoever you would like, but I've attached its contents, including the Git history, as a compressed file. Please look at the timestamps for the last commits on the files 'harvard-contributions.csv', 'harvard-contribution-2011-2014-tagged.csv', and 'harvard-people.csv' to find the last modified date of these files. I would suggest that you run a diff algorithm between these files and whatever current files you are using to see what has been changed since David and his friends started working on it.
+
+While I certainly cannot force you, I urge you to consider releasing the data sets under an open data license like the PDDL Or the ODF-ODbL license and the R scripts under a free software license like GPLv2 or LGPL. The Crimson could fork my repository on Github, commit the work others have contributed, apply the licenses, and then make it public and include a link on the article. This data originates from the public domain, and because this process can be duplicated at other schools at which political contribution data could be useful, releasing the data, code, and these instructions is a very important act of transparency and openness.
+
+The data set is derived from FEC data disclosures between 2001 and November 2014. You may can the exact date range with the max/min of the 'TRANSACTION_DT' field in the file 'harvard-contributions.csv,' an operation which is performed on line 83 of the file 'analysis.R'. 
+
+The process for creating the datasets is as follows:
+
+	1. Download FEC data disclosures for each pair of years between 2001-2002 and 2013-2014 from http://www.fec.gov/finance/disclosure/ftpdet.shtml. You will need to download the Committee Master File, Candidate Master File, and Contributions by Individuals file for each pair of years. The respective 'Data Dictionaries' in the far-right column describe each field in the dataset. These are very large files, and from my recollection comprise about 30 million rows of data across all 14 years. Note that when the data set that you acquired was created, the FEC had only released contributions through the middle of November. You should look at the commits on the repository to find a timestamp of when you should cut off the data.
+
+	Note: I would recommend that you download these files to a dedicated server with a fair amount of processing power and memory. My computer was not able to perform the task of merging these data sets without crashing. It worked fine on Debian Main with 4GB RAM and 2 CPUs.
+
+	Organize the files in your root directory as follows:
+
+	* The header files that are found in each .zip file that you have downloaded are identical, although you should verify this. Place one set of header files in data/header.
+	* For the data from years 20XX-20YY, place the three data files in the folder data/raw_data/XX-YY. 
+
+	2. Execute the 'read.all' function in the R script 'build.R'. It will iterate through each of the folders in data/raw_data and perform two operations:
+		a. It will merge the Committee Master, Candidate Master, and Contributions by Individual files for that pair of years. This occurs on lines 51 and 52 of 'build.R'. 
+		b. It will extract the rows that contain the word 'HARVARD' in the 'EMPLOYER' field, and save a a new file '20XX-20YY.csv' in the /data directory. This happens on line 40 of 'build.R'.
+
+	3. Merge each of the data sets output by the 'read.all' functions into a single file, and call that file 'harvard-contributions.csv'. I just did this in the R REPL. At this point, you should have one data set with every contribution by an individual who put down an employer with the word 'HARVARD' in between 2001 and November 2014.
+
+	4. Extract all unique 'EMPLOYER' entries and save them to a separate file (mine is called 'employers.csv'). Then, go manually through this file and delete each entry where the employee is not an affiliate of the University (for example, 'Harvard Pilgrim Health Care'). You will need to figure out what your policy is on HMS-affiliated Boston-area hospitals. Mine was to exclude them. Finally, load both 'employers.csv' and 'harvard-contributions.csv' into R and remove all rows in 'harvard-contributions.csv' where the employer is not in your filtered list of employers.
+
+	5. In 'harvard-contributions.csv', there will be some contributions who were made by the same person, but who have different values in the 'NAME' column (for example, "DOE, JOHN" and "DOE, JOHN D."). Such contributions will be evidence becuase the 'EMPLOYER' and 'OCCUPATION' fields will generally be the same. If you are unsure, then do not modify a row. Sort the file by the 'NAME' field and manually iterate through it, ensuring no such duplicates.
+
+	6. Extract all unique 'NAME' entries, and then save them to another file ('harvard-contributors.csv') along with their associated 'EMPLOYER' and 'OCCUPATION' entries. I only extracted the unique names from contributions that had a 'TRANSACTION_DT' of 2011 or after, because there are a lot of names to verify and you do not need the entire population for the tests you will perform on this data set.
+
+	7. In 'harvard-contributors.csv', add three new columns: 'GENDER', 'SCHOOL', and 'TITLE'. Then, manually go through each name and do the following:
+
+		a. In the Harvard directory, search for that name. If a result is found, then add the 'GENDER', 'SCHOOL', and 'TITLE' based on the search result.
+		b. If no directory entry is found, then search for a source on Google that confirms that individuals employment status and add the same information as in (a). 
+		c. If neither the Harvard directory or Google yields results, then delete that row from 'harvard-contributors.csv'.
+
+	8. Create a copy of 'harvard-contributions.csv' and name it 'harvard-contributions-2011-2014.csv'. Then merge 'harvard-contributors.csv' into the new file by the 'NAME' field. 
+
+	9. At this point, you should have three primary data files. You should place them in the same directory as 'analysis.R'.
+
+		* 'harvard-contributions.csv': all Harvard political contributions, 2001 - 2014. 
+		* 'harvard-contributions-2011-2014.csv': Harvard political contributions, tagged with employement information, 2011 - 2014.
+		* 'harvard-contributors.csv': unique verified Harvard contributors, with additional employement information, 2011 - 2014. 
+
+	10. The file 'analysis.R ' analyzes these data sets. It contains fairly-frequent comments, which should help you in fact-checking its accuracy.
+
+Best of luck.
